@@ -9,12 +9,23 @@ import { Game } from "./Game";
 import { AnalysisParams } from "./interface/AnalysisParams";
 import { Configurations } from "./interface/Configurations";
 import { ItemImpl } from "./interface/Item";
+import { Result } from "./Result";
 import { Run } from "./Run";
 import { AbstractCard } from "./struct/AbstractCard";
 import { CardNameBuilder } from "./struct/CardNameBuilder";
 import { InstanceParams } from "./struct/InstanceParams";
 import { JokerData } from "./struct/JokerData";
 import { Option } from "./struct/Option";
+
+interface AnalysisResult {
+    antes: AnteResult[];
+}
+
+interface AnteResult {
+    ante: number;
+    cards: Card[];
+    options: Option[];
+}
 
 export class BalatroAnalyzer {
     static readonly OPTIONS: ReadonlyArray<string> = [
@@ -114,6 +125,8 @@ export class BalatroAnalyzer {
     stake: Stake;
     version: Version;
     configurations: Configurations;
+    result: Result;
+
 
     constructor(ante: number, cardsPerAnte: number[], deck: Deck, stake: Stake, version: Version, configurations: Configurations) {
         // this.seed = seed;
@@ -123,9 +136,10 @@ export class BalatroAnalyzer {
         this.stake = stake;
         this.version = version;
         this.configurations = configurations;
+        this.result = new Result();
     }
 
-    performAnalysis({ seed, ante, cardsPerAnte, deck, stake, version }: AnalysisParams): Run {
+    performAnalysis({ seed, ante, cardsPerAnte, deck, stake, version }: AnalysisParams): { run: Run, game: Game } {
         if (ante > cardsPerAnte.length) {
             throw new Error(`cardsPerAnte array does not have enough elements for ante ${ante}`);
         }
@@ -141,10 +155,11 @@ export class BalatroAnalyzer {
         const run = new Run(seed);
 
         for (let a = 1; a <= ante; a++) {
+            this.result.setCurrentAnte = a;
             this.processAnte(game, run, a, cardsPerAnte[a - 1], selectedOptions);
         }
 
-        return run;
+        return { run, game };
     }
 
     private lockOptions(game: Game, selectedOptions: boolean[]): void {
@@ -160,6 +175,7 @@ export class BalatroAnalyzer {
 
         const voucher = game.nextVoucher(ante).getName();
         game.lock(voucher);
+        this.result.addVoucher(voucher);
 
         this.unlockVouchers(game, voucher, selectedOptions);
 
@@ -192,6 +208,7 @@ export class BalatroAnalyzer {
         if (shopItem.type === Type.JOKER) {
             run.addJoker(shopItem.jokerData.joker.getName());
             sticker = BalatroAnalyzer.getSticker(shopItem.jokerData);
+            this.result.addItemToShopQueue(shopItem.jokerData);
         }
 
         // console.log(` Card ${i + 1}: ${shopItem.item.getName()} ${sticker ? `(${new EditionItem(sticker).getName()})` : ""}`);
@@ -224,6 +241,8 @@ export class BalatroAnalyzer {
         for (let c = 0; c < packInfo.getSize(); c++) {
             this.processCard(run, packInfo, cards[c], options);
         }
+
+        this.result.addPackToQueue(packInfo.getKind(), cards as (Card | JokerData)[]);
 
         // console.log(` Pack ${packNumber}: ${packInfo.getKind()}`);
         // console.log(`  Options:`);
