@@ -209,8 +209,9 @@ export class BalatroAnalyzer {
             run.addJoker(shopItem.jokerData.joker.getName());
             sticker = BalatroAnalyzer.getSticker(shopItem.jokerData);
             this.result.addItemToShopQueue(shopItem.jokerData);
+        } else {
+            this.result.addItemToShopQueue(shopItem.item as Card);
         }
-
         // console.log(` Card ${i + 1}: ${shopItem.item.getName()} ${sticker ? `(${new EditionItem(sticker).getName()})` : ""}`);
     }
 
